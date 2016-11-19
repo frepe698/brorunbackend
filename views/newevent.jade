@@ -1,0 +1,22 @@
+extends layout
+
+block content
+	h3= title
+	form#form_create_event(name="create_event", method="post",
+	action="/create_event")
+		span Name
+		span &nbsp;
+		input#input_name(type="text", placeholder="name",name="name")
+		br
+		br
+		span Length
+		span &nbsp;
+		input#input_length(type="text", placeholder="length",name="length")
+		br
+		br
+		span Start Time
+		span &nbsp;
+		input#input_start_time(type="text", placeholder="starttime",name="start_time")
+		br
+		br
+		button#submit_post(type="submit") submit

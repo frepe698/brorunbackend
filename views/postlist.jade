@@ -1,0 +1,10 @@
+extends layout
+
+block content
+	h3.
+		Posts
+	ul
+		each post, i in postlist
+			li#post_list_item
+				a(href="#") #{post.post} location
+				#{post.lat} #{post.long}
