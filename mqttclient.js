@@ -2,12 +2,21 @@ const mqtt = require('mqtt');
 //const mqttclient = mqtt.connect('mqtt://broker.hivemq.com');
 //const mqttclient = mqtt.connect('tcp://localhost:1883');
 const mqttclient = mqtt.connect('mqtt://test.mosquitto.org');
-var mongodb = require('mongodb');
+
+var Event = require('./models/event');
+
 var distanceCalc = require('./distance_calc');
 
-var url = 'mongodb://localhost:27017/zmap';
+
 
 mqttclient.on('connect', function(){
+	Event.find({}, function(err, events){
+		events.forEach(function(event){
+			var topic = "events/" + event._id + "/coordinates";
+			mqttclient.subscribe(topic);
+			console.log("Subscribed to topic: " + topic);
+		});
+	});
 	console.log("Connected to broker");
 });
 
@@ -22,62 +31,38 @@ mqttclient.on('message', function(topic, message){
 		
 		var topicId = topicValues[1];
 		var msgObj = JSON.parse(message);
+		var playerId = msgObj.playerId;
+		var latitude = msgObj.coordinates.lat;
+		var longitude = msgObj.coordinates.long;
 		
-		var MongoClient = mongodb.MongoClient;
-		MongoClient.connect(url, function(err, db){
-		if(err){
-			console.log('Unable to connect to the server', err);
-		} else{
-			console.log('Connection established');
+		Event.findById(topicId, function(err, event){
 
-			var collection = db.collection('events');
-			collection.findOne({"topic_id":topicId}, function(err, event){
-				if(err){
-					console.log(err);
-					db.close();
-				} else if(event != null){
-					console.log("Found event in db:");
-					console.log(event);
-					var lastLat = event.lastLocation.lat;
-					var lastLong = event.lastLocation.long;
-					var distance = event.totalDistance;
-					if(lastLat && lastLong ) {
-						distance = distanceCalc.measure(lastLat, lastLong, msgObj.coordinates.lat, msgObj.coordinates.long);
-						lastLat = msgObj.coordinates.lat;
-						lastLong = msgObj.coordinates.long;
-					} 
-					else {
-						lastLat = msgObj.coordinates.lat ;
-						lastLong = msgObj.coordinates.long;
-					}			
+			var player = event.players.id(playerId);
+			if(player){
+				var lastLat = player.latitude;
+				var lastLong = player.longitude;
 
-					collection.update(
-						{"topic_id":topicId}, 
-						{$set: {"lastLocation.lat":lastLat,
-								"lastLocation.long": lastLong,
-								"totalDistance": distance}}, 
-						function(err, event){
-							if(err){
-								console.log(err);
-							}
-							db.close();
-
-							//Publish new distance to mqtt topic
-							var pubTopic = "events/" + topicId + "/distance";
-							var pubMessage = {
-								"distance": distance
-							};
-							mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
-						});
+				if(lastLat && lastLong ) {
+					player.distance += distanceCalc.measure(lastLat, lastLong, latitude, longitude);
 					
-				} else{
-					console.log('No documents found');
-					db.close();
 				}
+				player.latitude = latitude;
+				player.longitude = longitude;
 				
+			}
+
+			event.save(function(err){
+				if(err) throw err;
+				console.log("Saved successfully");
+				var pubTopic = "events/" + topicId + "/distance";
+				var pubMessage = {
+					"distance": player.distance,
+					"playerId": playerId
+				};
+				console.log("Sending message:" + JSON.stringify(pubMessage) + "to topic: " + pubTopic);
+				mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
 			});
-		}
-	});
+		});
 	}
 });
 

@@ -1,9 +1,15 @@
 var express = require('express');
 var router = express.Router();
 var mongodb = require('mongodb');
+
 var uuid = require('node-uuid');
 
 var mqttclient = require('../mqttclient');
+var distanceCalc = require('../distance_calc');
+
+
+//Database models
+var Event = require('../models/event');
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -98,6 +104,80 @@ router.post('/publish_coordinates', function(req,res){
 	
 	mqttclient.publish(topic, JSON.stringify(message));
 	res.send("Publised message to broker");
+});
+
+router.post('/create_event_v2', function(req,res){
+	var newEvent = new Event({
+		name: "Yolo"
+	});
+	newEvent.addPlayer();
+	console.log(newEvent);
+
+	newEvent.save(function(err){
+		if(err) throw err;
+
+		var retVal = {
+			"topicId": newEvent._id,
+			"playerId": newEvent.players[0]._id
+		}
+		res.send(JSON.stringify(retVal));
+	})
+
+});
+
+router.post('/update_player', function(req,res){
+	
+	var topicId = req.body.topicId;
+	var playerId = req.body.playerId;
+	var coordinates = req.body.coordinates;
+	var name = req.body.name;
+
+	
+	Event.findById(topicId, function(err, event){
+		console.log("Event: " + event);
+		var player = event.players.id(playerId);
+		if(player){
+			var lastLat = player.latitude;
+			var lastLong = player.longitude;
+
+			if(lastLat && lastLong ) {
+				player.distance += distanceCalc.measure(lastLat, lastLong, coordinates.lat, coordinates.long);
+				
+			}
+			player.latitude = coordinates.lat;
+			player.longitude = coordinates.long;
+			
+		}
+		console.log("Player: " + player);
+
+		event.save(function(err){
+			if(err) throw err;
+			console.log("Saved successfully");
+		});
+	});
+	res.send("Player updated");
+});
+
+router.post('/join_event', function(req,res){
+	var topicId = req.body.topicId;
+	var playerId = uuid.v1();
+	Event.findById(topicId, function(err, event){
+		event.players.push({
+			_id: playerId,
+			latitude: null,
+			longitude: null,
+			distance: 0
+		});
+		event.save(function(err){
+			if(err) throw err;
+			console.log("Player saved");
+			var retVal = {
+				"topicId": event._id,
+				"playerId": playerId
+			}
+			res.send(JSON.stringify(retVal));
+		});
+	});
 });
 
 module.exports = router;
