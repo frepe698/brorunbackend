@@ -16,7 +16,7 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
-router.post('/create_event', function(req,res){
+router.post('/create_event_v2', function(req,res){
 	var MongoClient = mongodb.MongoClient;
 	var url = 'mongodb://localhost:27017/zmap';
 
@@ -106,7 +106,7 @@ router.post('/publish_coordinates', function(req,res){
 	res.send("Publised message to broker");
 });
 
-router.post('/create_event_v2', function(req,res){
+router.post('/create_event', function(req,res){
 	var newEvent = new Event({
 		name: "Yolo"
 	});
@@ -116,6 +116,9 @@ router.post('/create_event_v2', function(req,res){
 	newEvent.save(function(err){
 		if(err) throw err;
 
+		var topic = "events/" + newEvent._id + "/coordinates";
+		mqttclient.subscribe(topic);
+		console.log("Subscribed to topic: " + topic);
 		var retVal = {
 			"topicId": newEvent._id,
 			"playerId": newEvent.players[0]._id
