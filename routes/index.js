@@ -65,30 +65,9 @@ router.post('/create_event_v2', function(req,res){
 
 
 router.get('/events', function(req,res){
-	var MongoClient = mongodb.MongoClient;
-
-	var url = 'mongodb://localhost:27017/zmap';
-
-	MongoClient.connect(url, function(err, db){
-		if(err){
-			console.log('Unable to connect to the server', err);
-
-		} else{
-			console.log('Connection established');
-
-			var collection = db.collection('events');
-
-			collection.find({}).toArray(function(err, result){
-				if(err){
-					res.send(err);
-				} else if(result.length){
-					res.send(result);
-				} else{
-					res.send('No documents found');
-				}
-				db.close();
-			});
-		}
+	Event.find({}, '_id name players', function(err, events){
+		if(err) throw err;
+		res.send(events);
 	});
 });
 
@@ -124,7 +103,7 @@ router.post('/create_event', function(req,res){
 			"playerId": newEvent.players[0]._id
 		}
 		res.send(JSON.stringify(retVal));
-	})
+	});
 
 });
 
