@@ -157,8 +157,31 @@ router.post('/join_event', function(req,res){
 				"topicId": event._id,
 				"playerId": playerId
 			}
+			var topic = "events/" + event._id + "/joined";
+			var msg = {"playerId" : playerId};
+			mqttclient.publish(topic, JSON.stringify(msg));
+			
 			res.send(JSON.stringify(retVal));
 		});
+	});
+});
+
+router.post('/leave_event', function(req, res){
+	var topicId = req.body.topicId;
+	var playerId = req.body.playerId;
+	Event.findByIdAndUpdate(topicId, {
+		$pull:{
+			players: {_id : playerId}
+		}
+	}, function(err, event){
+		event.save(function(err){
+			if(err) res.send(err);
+			var topic = "events/" + event._id + "/left";
+			var msg = {"playerId" : playerId};
+			mqttclient.publish(topic, JSON.stringify(msg));
+			res.send(event);	
+		});
+		
 	});
 });
 
