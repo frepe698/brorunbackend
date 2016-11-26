@@ -20,8 +20,12 @@ var eventSchema = new Schema({
 });
 
 
-eventSchema.methods.addPlayer = function() {
+eventSchema.methods.addPlayer = function(playerId) {
+	if(playerId == null) {
+		playerId = uuid.v1();
+	} 
 	this.players.push({
+		_id: playerId,
 		latitude: null,
 		longitude: null,
 		distance: 0

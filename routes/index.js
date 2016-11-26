@@ -10,6 +10,7 @@ var distanceCalc = require('../distance_calc');
 
 //Database models
 var Event = require('../models/event');
+var User = require('../models/user');
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -94,7 +95,7 @@ router.post('/create_event', function(req,res){
 		length: eventLength,
 		start_time: eventStartTime
 	});
-	newEvent.addPlayer();
+	newEvent.addPlayer(req.body.playerId);
 	console.log(newEvent);
 
 	newEvent.save(function(err){
@@ -192,5 +193,33 @@ router.post('/leave_event', function(req, res){
 		
 	});
 });
+
+router.post('/signup', function(req,res){
+	var name = req.body.username;
+
+	User.findOne({username: name}, function(err, user){
+		if(user) {
+			res.send("Name is not unique");
+		}
+		else{
+			var user = new User({
+				username: name
+			});	
+
+			user.save(function(err){
+				if(err) res.send("Name is in use");
+				var retVal = {
+					"username": user.username,
+					"_id": user._id
+				}
+				res.send(retVal);
+			});	
+		}
+		
+
+	});
+	
+
+})
 
 module.exports = router;
