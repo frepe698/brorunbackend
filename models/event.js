@@ -14,6 +14,8 @@ var playerSchema = new Schema({
 var eventSchema = new Schema({
 	_id: {type: String, default: uuid.v1},
 	name: String,
+	length: Number,
+	start_time: String,
 	players: [playerSchema]
 });
 

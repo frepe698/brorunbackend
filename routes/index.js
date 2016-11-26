@@ -86,8 +86,13 @@ router.post('/publish_coordinates', function(req,res){
 });
 
 router.post('/create_event', function(req,res){
+	var eventName = req.body.name;
+	var eventStartTime = req.body.start_time;
+	var eventLength = req.body.length;
 	var newEvent = new Event({
-		name: "Yolo"
+		name: "Yolo",
+		length: eventLength,
+		start_time: eventStartTime
 	});
 	newEvent.addPlayer();
 	console.log(newEvent);
@@ -99,9 +104,10 @@ router.post('/create_event', function(req,res){
 		mqttclient.subscribe(topic);
 		console.log("Subscribed to topic: " + topic);
 		var retVal = {
-			"topicId": newEvent._id,
-			"playerId": newEvent.players[0]._id
-		}
+				"topicId": newEvent._id,
+				"playerId": newEvent.players[0]._id,
+				"players": newEvent.players
+			}
 		res.send(JSON.stringify(retVal));
 	});
 
@@ -153,14 +159,16 @@ router.post('/join_event', function(req,res){
 		event.save(function(err){
 			if(err) throw err;
 			console.log("Player saved");
-			var retVal = {
-				"topicId": event._id,
-				"playerId": playerId
-			}
+			
 			var topic = "events/" + event._id + "/joined";
 			var msg = {"playerId" : playerId};
 			mqttclient.publish(topic, JSON.stringify(msg));
 			
+			var retVal = {
+				"topicId": event._id,
+				"playerId": playerId,
+				"players": event.players
+			}
 			res.send(JSON.stringify(retVal));
 		});
 	});
