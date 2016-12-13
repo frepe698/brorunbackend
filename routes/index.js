@@ -17,53 +17,6 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
-router.post('/create_event_v2', function(req,res){
-	var MongoClient = mongodb.MongoClient;
-	var url = 'mongodb://localhost:27017/zmap';
-
-	MongoClient.connect(url, function(err, db){
-		if(err){
-			console.log('Unable to connect to the server', err);
-		} else{
-			console.log('Connection established');
-
-			var collection = db.collection('events');
-
-			//Create new topic for mqtt, add to db and send back to client
-			var topicId = uuid.v1();
-			var event = {
-					name: req.body.name,
-					lastLocation: {
-						lat: null,
-						long: null
-					},
-					totalDistance: 0,
-					topic_id: topicId
-				};
-			if(event.name == null){
-				console.log("Malformed request");
-				res.send("Malformed request");
-			} else{
-				collection.insert([event], function(err, result){
-					if(err){
-						console.log(err);
-					} else{
-						var topic = "events/" + topicId + "/coordinates";
-						console.log("new topic is: " + topic);
-						mqttclient.subscribe(topic);
-						var retVal = {
-							"name": event.name,
-							"topicId": topicId
-						}
-						res.send(JSON.stringify(retVal));
-					}
-					db.close();
-				});
-			}
-		}
-	});
-});
-
 
 router.get('/events', function(req,res){
 	Event.find({}, '_id name players', function(err, events){
@@ -88,12 +41,11 @@ router.post('/publish_coordinates', function(req,res){
 
 router.post('/create_event', function(req,res){
 	var eventName = req.body.name;
-	var eventStartTime = req.body.start_time;
 	var eventLength = req.body.length;
 	var newEvent = new Event({
-		name: "Yolo",
+		name: eventName,
 		length: eventLength,
-		start_time: eventStartTime
+		start_time: null
 	});
 	newEvent.addPlayer(req.body.playerId);
 	console.log(newEvent);
@@ -149,7 +101,10 @@ router.post('/update_player', function(req,res){
 
 router.post('/join_event', function(req,res){
 	var topicId = req.body.topicId;
-	var playerId = uuid.v1();
+	var playerId = req.body.playerId;
+	if(playerId == null){
+		playerId = uuid.v1();
+	}
 	Event.findById(topicId, function(err, event){
 		event.players.push({
 			_id: playerId,
@@ -200,6 +155,7 @@ router.post('/signup', function(req,res){
 	User.findOne({username: name}, function(err, user){
 		if(user) {
 			res.send("Name is not unique");
+			return;
 		}
 		else{
 			var user = new User({
@@ -220,6 +176,81 @@ router.post('/signup', function(req,res){
 	});
 	
 
-})
+});
 
+router.post('/player_ready', function(req, res){
+	var topicId = req.body.topicId;
+	var playerId = req.body.playerId;
+
+	Event.findById(topicId, function(err, event){
+		if(err || !event) {
+			res.send("Could not find event");
+			return;
+		}
+		var player = event.players.id(playerId);
+		if(player){
+			player.ready = true;
+			
+		} else {
+			res.send("Could not find player");
+			return;
+		}
+		var allReady = true;
+		for(var i = 0; i < event.players.length; i++){
+			if(event.players[i].ready == false) {
+				allReady = false;
+			}
+		}
+		if(allReady) {
+			//Starting event in 10 seconds, be ready!
+			var startTime = new Date(+new Date() + 10 * 1000);
+			event.start_time = startTime;
+			console.log("Starting event at: " + event.start_time + 
+				" time now: " + new Date());
+		}
+		event.save(function(err){
+			if(err) throw err;
+			console.log("Saved successfully");
+			var pubTopic = "events/" + topicId + "/player_ready";
+			var pubMessage = {
+				"playerId": playerId
+			};
+			console.log("Sending message:" + JSON.stringify(pubMessage) + "to topic: " + pubTopic);
+			mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
+
+			if(allReady) {
+				var startPubTopic = "events/" + topicId + "/starting"
+				var startPubMessage = {
+					"startTime": event.start_time
+				};
+				console.log("Sending message:" + JSON.stringify(startPubMessage) + "to topic: " + startPubTopic);
+			
+				mqttclient.publish(startPubTopic, JSON.stringify(startPubMessage));
+			};
+			
+			res.send("player ready");
+		});
+	});
+	
+});
+
+router.post('/test/publish_coordinates', function(req,res){
+	var topicId = req.body.topicId;
+	var playerId = req.body.playerId;
+	var latitude = req.body.lat;
+	var longitude = req.body.long;
+
+	var pubMessage = {
+		"playerId": playerId,
+		"coordinates": {
+			"lat" : latitude,
+			"long": longitude
+		}
+	};
+	var pubTopic = "events/" + topicId + "/coordinates";
+	console.log("Published message " + pubMessage + " to topic " + pubTopic);
+	mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
+
+	res.send("Publised coordinates to topic");
+});
 module.exports = router;

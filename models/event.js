@@ -7,6 +7,7 @@ var playerSchema = new Schema({
 	latitude: Number,
 	longitude: Number, 
 	distance: Number,
+	ready: {type: Boolean, default: false},
 	updated: {type: Date, default: Date.now}
 });
 
@@ -15,7 +16,9 @@ var eventSchema = new Schema({
 	_id: {type: String, default: uuid.v1},
 	name: String,
 	length: Number,
-	start_time: String,
+	start_time: Date,
+	finished: {type: Boolean, default: false},
+	winner: String,
 	players: [playerSchema]
 });
 

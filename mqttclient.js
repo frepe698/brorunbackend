@@ -1,7 +1,7 @@
 const mqtt = require('mqtt');
 //const mqttclient = mqtt.connect('mqtt://broker.hivemq.com');
-//const mqttclient = mqtt.connect('tcp://localhost:1883');
-const mqttclient = mqtt.connect('mqtt://test.mosquitto.org');
+const mqttclient = mqtt.connect('tcp://localhost:1883');
+//const mqttclient = mqtt.connect('mqtt://test.mosquitto.org');
 
 var Event = require('./models/event');
 
@@ -36,7 +36,19 @@ mqttclient.on('message', function(topic, message){
 		var longitude = msgObj.coordinates.long;
 		
 		Event.findById(topicId, function(err, event){
-
+			if(err || !event) {
+				console.log("No event found for message over mqtt");
+				return;
+			}
+			if(event.finished == true) {
+				console.log("Event is already finished");
+				return;
+			}
+			if(event.start_time == null || event.start_time > new Date()) {
+				console.log("Event has not started yet. Event will start: " + event.start_time + 
+					" now: " + new Date());
+				return;
+			}
 			var player = event.players.id(playerId);
 			if(player){
 				var lastLat = player.latitude;
@@ -44,7 +56,17 @@ mqttclient.on('message', function(topic, message){
 
 				if(lastLat && lastLong ) {
 					player.distance += distanceCalc.measure(lastLat, lastLong, latitude, longitude);
-					
+					if(player.distance >= event.length) {
+						event.finished = true;
+						event.winner = player._id;
+						var winnerTopic = "events/" + topicId + "/winner";
+						var winnerMessage = {
+							"playerId": player._id
+						};
+						console.log("Sending message: " + JSON.stringify(winnerMessage) + " to topic: "
+							+ winnerTopic);
+						mqttclient.publish(winnerTopic, JSON.stringify(winnerMessage));
+					}
 				}
 				player.latitude = latitude;
 				player.longitude = longitude;
