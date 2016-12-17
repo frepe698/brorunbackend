@@ -178,13 +178,17 @@ router.post('/signup', function(req,res){
 
 });
 
+//TODO: add "unready"
 router.post('/player_ready', function(req, res){
 	var topicId = req.body.topicId;
 	var playerId = req.body.playerId;
 
 	Event.findById(topicId, function(err, event){
 		if(err || !event) {
-			res.send("Could not find event");
+			var response = {
+				"status": "Could not find event"
+			}
+			res.send(response);
 			return;
 		}
 		var player = event.players.id(playerId);
@@ -192,7 +196,10 @@ router.post('/player_ready', function(req, res){
 			player.ready = true;
 			
 		} else {
-			res.send("Could not find player");
+			var response = {
+				"status": "Could not find player"
+			}
+			res.send(response);
 			return;
 		}
 		var allReady = true;
@@ -227,8 +234,10 @@ router.post('/player_ready', function(req, res){
 			
 				mqttclient.publish(startPubTopic, JSON.stringify(startPubMessage));
 			};
-			
-			res.send("player ready");
+			var response = {
+				"status": "player ready"
+			}
+			res.send(response);
 		});
 	});
 	

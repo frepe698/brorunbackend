@@ -1,7 +1,7 @@
 const mqtt = require('mqtt');
 //const mqttclient = mqtt.connect('mqtt://broker.hivemq.com');
-const mqttclient = mqtt.connect('tcp://localhost:1883');
-//const mqttclient = mqtt.connect('mqtt://test.mosquitto.org');
+//const mqttclient = mqtt.connect('tcp://localhost:1883');
+const mqttclient = mqtt.connect('mqtt://test.mosquitto.org');
 
 var Event = require('./models/event');
 
