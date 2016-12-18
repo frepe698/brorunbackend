@@ -70,20 +70,21 @@ mqttclient.on('message', function(topic, message){
 				}
 				player.latitude = latitude;
 				player.longitude = longitude;
-				
+			
+				event.save(function(err){
+					if(err) throw err;
+					console.log("Saved successfully");
+					var pubTopic = "events/" + topicId + "/distance";
+					var pubMessage = {
+						"distance": player.distance,
+						"playerId": playerId
+					};
+					console.log("Sending message:" + JSON.stringify(pubMessage) + "to topic: " + pubTopic);
+					mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
+				});	
 			}
 
-			event.save(function(err){
-				if(err) throw err;
-				console.log("Saved successfully");
-				var pubTopic = "events/" + topicId + "/distance";
-				var pubMessage = {
-					"distance": player.distance,
-					"playerId": playerId
-				};
-				console.log("Sending message:" + JSON.stringify(pubMessage) + "to topic: " + pubTopic);
-				mqttclient.publish(pubTopic, JSON.stringify(pubMessage));
-			});
+			
 		});
 	}
 });
